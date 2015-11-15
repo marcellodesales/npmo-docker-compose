@@ -1,9 +1,36 @@
+# Data Containers
+
+couchdbData:
+  image: busybox
+  volumes:
+    - /usr/local/lib/npmo/couchdb:/usr/local/var/lib/couchdb
+
+elasticsearchData:
+  image: busybox
+  volumes:
+    - /usr/local/lib/npmo/elasticsearch:/data
+
+postgresData:
+  image: busybox
+  volumes:
+    - /usr/local/lib/npmo/postgresql:/var/lib/postgresql/data
+
+authData:
+  image: busybox
+  volumes:
+    - /usr/local/lib/npmo/data:/etc/npme/data
+
+packagesData:
+  image: busybox
+  volumes:
+    - /usr/local/lib/npmo/packages:/etc/npme/packages
+
 # couchdb
 
 couchdbprimary:
   build: roles/couchdb
-  volumes:
-    - /usr/local/lib/npmo/couchdb:/usr/local/var/lib/couchdb
+  volumes_from:
+    - "couchdbData"
   ports:
     - "55984:5984"
 
@@ -26,8 +53,8 @@ auth:
   links:
     - redis
   restart: always
-  volumes:
-    - /usr/local/lib/npmo/data:/etc/npme/data
+  volumes_from:
+    - "authData"
   env_file: .env
 
 frontdoor:
@@ -58,18 +85,17 @@ frontdoor:
   ports:
     - "8080:8080"
   restart: always
-  volumes:
-    - /usr/local/lib/npmo/data:/etc/npme/data
-    - /usr/local/lib/npmo/packages:/etc/npme/packages
-  env_file: .env
+  volumes_from:
+    - "authData"
+    - "packagesData"
 
 nginx:
   image: bcoe/nginx:1.0.0
   expose:
     - "8000"
   restart: always
-  volumes: # TODO use volumes_from?
-    - /usr/local/lib/npmo/packages:/etc/npme/packages
+  volumes_from:
+    - "packagesData"
 
 redis:
   expose:
@@ -88,8 +114,8 @@ validate:
   links:
     - couchdbprimary
   restart: always
-  volumes: # TODO use volumes_from?
-    - /usr/local/lib/npmo/packages:/etc/npme/packages
+  volumes_from:
+    - "packagesData"
   env_file: .env
 
 # website
@@ -99,8 +125,8 @@ postgres:
     - "5432"
   image: bcoe/postgres:9.3
   restart: always
-  volumes:
-    - /usr/local/lib/npmo/postgresql:/var/lib/postgresql/data
+  volumes_from:
+    - "postgresData"
 
 rrfollower:
   build: roles/rr-follower
@@ -108,8 +134,8 @@ rrfollower:
   links:
     - postgres
     - couchdbprimary
-  volumes:
-    - /usr/local/lib/npmo/data:/etc/npme/data
+  volumes_from:
+    - "authData"
   env_file: .env
 
 rrservice:
@@ -139,8 +165,8 @@ elasticsearch:
   restart: always
   expose:
     - "9200"
-  volumes:
-    - /usr/local/lib/npmo/elasticsearch:/data
+  volumes_from:
+    - "elasticsearchData"
 
 esfollower:
   image: bcoe/es-follower:1.0.3
@@ -168,8 +194,8 @@ policyfollower:
     - WHITELIST_PATH=/etc/npme/data/whitelist
     - SHARED_FETCH_SECRET=false
     - SEND_SHARED_FETCH_SECRET=
-  volumes:
-    - /usr/local/lib/npmo/data:/etc/npme/data
+  volumes_from:
+    - "authData"
   env_file: .env
 
 # tools
@@ -180,6 +206,6 @@ tools:
   links:
     - couchdbprimary
     - nginx
-  volumes:
-    - /usr/local/lib/npmo/data:/etc/npme/data
-    - /usr/local/lib/npmo/packages:/etc/npme/packages
+  volumes_from:
+    - "authData"
+    - "packagesData"
